@@ -1,4 +1,33 @@
-- name: Setup Node.js
+name: Build & Release Cross-Platform App
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  publish-tauri:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: 'macos-latest'
+            args: '--target universal-apple-darwin'
+          - platform: 'ubuntu-22.04'
+            args: ''
+          - platform: 'windows-latest'
+            args: ''
+
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 20
@@ -29,7 +58,6 @@
             const zlib = require("zlib");
             if (!fs.existsSync("src-tauri/icons/icon.png")) {
               fs.mkdirSync("src-tauri/icons", { recursive: true });
-              // 32x32 düz mavi PNG üretimi
               const w = 32, h = 32;
               const raw = Buffer.alloc((w * 4 + 1) * h);
               for (let y = 0; y < h; y++) {
