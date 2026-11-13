@@ -1,0 +1,339 @@
+:root,
+[data-theme="light"] {
+  --bg-primary: #ffffff;
+  --bg-secondary: #f6f8fa;
+  --bg-tertiary: #eaeef2;
+  --text-primary: #1f2328;
+  --text-secondary: #656d76;
+  --border-color: #d0d7de;
+  --accent-color: #0969da;
+  --accent-hover: #0550ae;
+  --code-bg: #f6f8fa;
+  --blockquote-border: #d0d7de;
+}
+
+[data-theme="dark"] {
+  --bg-primary: #0d1117;
+  --bg-secondary: #161b22;
+  --bg-tertiary: #21262d;
+  --text-primary: #e6edf3;
+  --text-secondary: #8b949e;
+  --border-color: #30363d;
+  --accent-color: #58a6ff;
+  --accent-hover: #79c0ff;
+  --code-bg: #161b22;
+  --blockquote-border: #3b434b;
+}
+
+[data-theme="sepia"] {
+  --bg-primary: #fbf0d9;
+  --bg-secondary: #f3e4c6;
+  --bg-tertiary: #e6d3ae;
+  --text-primary: #433422;
+  --text-secondary: #7a654b;
+  --border-color: #d6c19c;
+  --accent-color: #a65e2e;
+  --accent-hover: #82461e;
+  --code-bg: #f3e4c6;
+  --blockquote-border: #c9b084;
+}
+
+[data-theme="nord"] {
+  --bg-primary: #2e3440;
+  --bg-secondary: #3b4252;
+  --bg-tertiary: #434c5e;
+  --text-primary: #eceff4;
+  --text-secondary: #d8dee9;
+  --border-color: #4c566a;
+  --accent-color: #88c0d0;
+  --accent-hover: #8fbcbb;
+  --code-bg: #3b4252;
+  --blockquote-border: #5e81ac;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  height: 100vh;
+  overflow: hidden;
+}
+
+.app-container {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 14px;
+  background-color: var(--bg-secondary);
+  border-bottom: 1px solid var(--border-color);
+  gap: 8px;
+  user-select: none;
+}
+
+.toolbar-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+  background-color: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btn:hover {
+  background-color: var(--bg-tertiary);
+}
+
+.btn.active {
+  background-color: var(--accent-color);
+  color: #ffffff;
+  border-color: var(--accent-color);
+}
+
+.btn-primary {
+  background-color: var(--accent-color);
+  color: #ffffff;
+  border-color: var(--accent-color);
+}
+
+.btn-primary:hover {
+  background-color: var(--accent-hover);
+}
+
+.file-title {
+  font-size: 13px;
+  color: var(--text-secondary);
+  max-width: 260px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.workspace {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+.editor-pane {
+  flex: 1;
+  height: 100%;
+  border-right: 1px solid var(--border-color);
+  display: flex;
+  flex-direction: column;
+}
+
+.editor-textarea {
+  width: 100%;
+  height: 100%;
+  padding: 20px;
+  border: none;
+  outline: none;
+  resize: none;
+  font-family: "JetBrains Mono", "Fira Code", Consolas, monospace;
+  font-size: 14px;
+  line-height: 1.6;
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+}
+
+.preview-pane {
+  flex: 1;
+  height: 100%;
+  overflow-y: auto;
+  padding: 24px 32px;
+  background-color: var(--bg-primary);
+}
+
+/* Markdown Rendered Styles */
+.markdown-body {
+  max-width: 860px;
+  margin: 0 auto;
+  line-height: 1.7;
+  font-size: 15px;
+}
+
+.markdown-body h1, .markdown-body h2, .markdown-body h3, .markdown-body h4 {
+  margin-top: 24px;
+  margin-bottom: 12px;
+  font-weight: 600;
+  line-height: 1.25;
+}
+
+.markdown-body h1 {
+  font-size: 2em;
+  padding-bottom: 0.3em;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.markdown-body h2 {
+  font-size: 1.5em;
+  padding-bottom: 0.3em;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.markdown-body p {
+  margin-bottom: 14px;
+}
+
+.markdown-body ul, .markdown-body ol {
+  padding-left: 24px;
+  margin-bottom: 14px;
+}
+
+.markdown-body blockquote {
+  padding: 4px 16px;
+  color: var(--text-secondary);
+  border-left: 4px solid var(--blockquote-border);
+  margin-bottom: 14px;
+}
+
+.markdown-body code {
+  padding: 2px 6px;
+  font-size: 85%;
+  background-color: var(--code-bg);
+  border-radius: 4px;
+  font-family: Consolas, monospace;
+}
+
+.markdown-body pre {
+  padding: 14px;
+  overflow: auto;
+  background-color: var(--code-bg);
+  border-radius: 6px;
+  margin-bottom: 16px;
+  border: 1px solid var(--border-color);
+}
+
+.markdown-body pre code {
+  padding: 0;
+  background: transparent;
+}
+
+.markdown-body table {
+  border-collapse: collapse;
+  width: 100%;
+  margin-bottom: 16px;
+}
+
+.markdown-body th, .markdown-body td {
+  border: 1px solid var(--border-color);
+  padding: 8px 12px;
+  text-align: left;
+}
+
+.markdown-body th {
+  background-color: var(--bg-secondary);
+}
+
+.statusbar {
+  display: flex;
+  justify-content: space-between;
+  padding: 4px 14px;
+  font-size: 12px;
+  background-color: var(--bg-secondary);
+  border-top: 1px solid var(--border-color);
+  color: var(--text-secondary);
+}
+
+/* Modal */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+
+.modal {
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  width: 460px;
+  max-width: 92vw;
+  padding: 20px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.25);
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.setting-row {
+  margin-bottom: 18px;
+}
+
+.setting-label {
+  display: block;
+  font-weight: 600;
+  margin-bottom: 6px;
+  font-size: 14px;
+}
+
+.setting-desc {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-bottom: 8px;
+}
+
+.theme-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.status-badge {
+  margin-top: 8px;
+  font-size: 12px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+}
+
+/* Print / PDF Styles */
+@media print {
+  .toolbar, .editor-pane, .statusbar, .modal-backdrop {
+    display: none !important;
+  }
+  body, .app-container, .workspace, .preview-pane {
+    height: auto !important;
+    overflow: visible !important;
+    background: #ffffff !important;
+    color: #000000 !important;
+    padding: 0 !important;
+  }
+  .markdown-body {
+    max-width: 100% !important;
+  }
+}
