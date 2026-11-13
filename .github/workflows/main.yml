@@ -1,28 +1,34 @@
-name: Build & Release Cross-Platform App
+
+name: Build Cross-Platform App (CI)
 
 on:
   push:
-    tags:
-      - 'v*'
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
-  publish-tauri:
+  build:
+    name: Build on ${{ matrix.platform }}
     strategy:
       fail-fast: false
       matrix:
         include:
-          - platform: 'macos-latest'
-            args: '--target universal-apple-darwin'
-          - platform: 'ubuntu-22.04'
+          - platform: macos-latest
+            args: --target universal-apple-darwin
+          - platform: ubuntu-22.04
             args: ''
-          - platform: 'windows-latest'
+          - platform: windows-latest
             args: ''
 
     runs-on: ${{ matrix.platform }}
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -51,23 +57,17 @@ jobs:
       - name: Install frontend dependencies
         run: npm install
 
-      # İkonlar src-tauri/icons/ altında depoya dahildir. Değiştirmek isterseniz:
-      #   npx tauri icon src-tauri/icons/icon.png
       - name: Verify icons exist
         shell: bash
         run: |
           for f in 32x32.png 128x128.png "128x128@2x.png" icon.icns icon.ico icon.png; do
-            test -s "src-tauri/icons/$f" || { echo "Eksik ikon: $f (çözüm: npx tauri icon src-tauri/icons/icon.png)"; exit 1; }
+            test -s "src-tauri/icons/$f" || {
+              echo "Missing icon: $f"
+              exit 1
+            }
           done
 
       - name: Build Tauri application
         uses: tauri-apps/tauri-action@v0
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tagName: v__VERSION__
-          releaseName: 'Markdown Studio v__VERSION__'
-          releaseBody: 'Windows, macOS ve Linux için otomatik oluşturulan kurulum paketleri.'
-          releaseDraft: true
-          prerelease: false
           args: ${{ matrix.args }}
