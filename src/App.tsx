@@ -1,11 +1,14 @@
-import React, { useEffect, useState, useMemo } from "react";
+import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
+import type { MouseEvent } from "react";
 import { marked } from "marked";
-import hljs from "highlight.js";
-import "highlight.js/styles/github-dark.css";
+import DOMPurify from "dompurify";
+import hljs from "highlight.js/lib/common";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
-import { open, save } from "@tauri-apps/plugin-dialog";
+import { getCurrentWindow } from "@tauri-apps/api/window";
+import { ask, message, open, save } from "@tauri-apps/plugin-dialog";
 import { readTextFile, writeTextFile, writeFile } from "@tauri-apps/plugin-fs";
+import { openUrl } from "@tauri-apps/plugin-opener";
 import {
   FileText,
   FolderOpen,
@@ -24,6 +27,8 @@ import { markdownToDocxBytes } from "./utils/docxExporter";
 type ViewMode = "split" | "editor" | "preview";
 type ThemeMode = "system" | "light" | "dark" | "sepia" | "nord";
 
+const APP_TITLE = "Markdown Studio";
+
 const DEFAULT_MD = `# Markdown Studio'ya Hoş Geldiniz
 
 Windows, macOS ve Linux destekli hızlı Markdown görüntüleyici ve düzenleyiciniz.
@@ -32,7 +37,7 @@ Windows, macOS ve Linux destekli hızlı Markdown görüntüleyici ve düzenleyi
 - **Canlı Önizleme:** Yazdığınız anda biçimlendirilmiş çıktıyı görün.
 - **Tema Desteği:** Ayarlar menüsünden Sistem, Açık, Koyu, Sepia veya Nord temalarını seçin.
 - **Dosya İlişkilendirme:** \`.md\` dosyalarına çift tıkladığınızda doğrudan bu uygulamada açın.
-- **PDF & DOCX Dışa Aktarma:** Ekstra program kurmadan tek tıkla belge çıktısı alın.
+- **PDF & DOCX Dışa Aktarma:** Ekstra program kurmadan belge çıktısı alın.
 
 \`\`\`rust
 fn main() {
@@ -51,6 +56,14 @@ marked.setOptions({
   gfm: true,
 });
 
+async function showError(text: string) {
+  try {
+    await message(text, { title: APP_TITLE, kind: "error" });
+  } catch {
+    console.error(text);
+  }
+}
+
 export default function App() {
   const [content, setContent] = useState<string>(DEFAULT_MD);
   const [filePath, setFilePath] = useState<string | null>(null);
@@ -62,18 +75,81 @@ export default function App() {
   const [showSettings, setShowSettings] = useState<boolean>(false);
   const [assocStatus, setAssocStatus] = useState<string>("");
 
-  // Tema uygulama
+  // Olay dinleyicilerinde (pencere kapatma vb.) bayat state kullanmamak için
+  const dirtyRef = useRef(false);
+  dirtyRef.current = isDirty;
+
+  const confirmDiscard = async (): Promise<boolean> => {
+    if (!dirtyRef.current) return true;
+    return ask("Kaydedilmemiş değişiklikler var. Devam ederseniz kaybolacaklar.", {
+      title: APP_TITLE,
+      kind: "warning",
+      okLabel: "Değişiklikleri at",
+      cancelLabel: "Vazgeç",
+    });
+  };
+
+  // Tema uygulama ("Sistem" seçiliyken işletim sistemi temasını da takip eder)
   useEffect(() => {
     localStorage.setItem("md-theme", theme);
-    if (theme === "system") {
-      const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-      document.documentElement.setAttribute("data-theme", prefersDark ? "dark" : "light");
-    } else {
-      document.documentElement.setAttribute("data-theme", theme);
-    }
+    const apply = () => {
+      if (theme === "system") {
+        const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+        document.documentElement.setAttribute("data-theme", prefersDark ? "dark" : "light");
+      } else {
+        document.documentElement.setAttribute("data-theme", theme);
+      }
+    };
+    apply();
+    if (theme !== "system") return;
+    const mq = window.matchMedia("(prefers-color-scheme: dark)");
+    mq.addEventListener("change", apply);
+    return () => mq.removeEventListener("change", apply);
   }, [theme]);
 
-  // Çift tıklanan veya CLI ile gönderilen dosyayı açma
+  // Pencere başlığı: dosya adı + kaydedilmemiş değişiklik göstergesi
+  useEffect(() => {
+    const name = filePath ? filePath.split(/[\\/]/).pop() : "Adsız.md";
+    try {
+      getCurrentWindow()
+        .setTitle(`${isDirty ? "● " : ""}${name} — ${APP_TITLE}`)
+        .catch(() => {});
+    } catch {
+      /* Tauri dışında (ör. tarayıcıda) çalışırken sessizce geç */
+    }
+  }, [filePath, isDirty]);
+
+  // Pencere kapatılırken kaydedilmemiş değişiklik uyarısı
+  useEffect(() => {
+    let unlisten: (() => void) | undefined;
+    let cancelled = false;
+    try {
+      getCurrentWindow()
+        .onCloseRequested(async (event) => {
+          if (!dirtyRef.current) return;
+          const ok = await ask("Kaydedilmemiş değişiklikler var. Yine de kapatılsın mı?", {
+            title: APP_TITLE,
+            kind: "warning",
+            okLabel: "Kapat",
+            cancelLabel: "Vazgeç",
+          });
+          if (!ok) event.preventDefault();
+        })
+        .then((fn) => {
+          if (cancelled) fn();
+          else unlisten = fn;
+        })
+        .catch(() => {});
+    } catch {
+      /* Tauri dışında çalışıyor */
+    }
+    return () => {
+      cancelled = true;
+      unlisten?.();
+    };
+  }, []);
+
+  // Çift tıklanan, "Birlikte Aç" ile gelen veya CLI ile gönderilen dosyayı açma
   useEffect(() => {
     const loadInitialFile = async () => {
       try {
@@ -99,14 +175,22 @@ export default function App() {
   }, []);
 
   const openFileFromPath = async (path: string) => {
+    if (!(await confirmDiscard())) return;
     try {
       const text = await readTextFile(path);
       setContent(text);
       setFilePath(path);
       setIsDirty(false);
     } catch (err) {
-      alert("Dosya okunamadı: " + String(err));
+      await showError("Dosya okunamadı: " + String(err));
     }
+  };
+
+  const handleNew = async () => {
+    if (!(await confirmDiscard())) return;
+    setContent("");
+    setFilePath(null);
+    setIsDirty(false);
   };
 
   const handleOpenDialog = async () => {
@@ -139,7 +223,7 @@ export default function App() {
       setFilePath(targetPath);
       setIsDirty(false);
     } catch (err) {
-      alert("Kaydetme hatası: " + String(err));
+      await showError("Kaydetme hatası: " + String(err));
     }
   };
 
@@ -152,12 +236,14 @@ export default function App() {
       if (!chosen) return;
       const bytes = await markdownToDocxBytes(content);
       await writeFile(chosen, bytes);
-      alert("DOCX dosyası başarıyla kaydedildi!");
+      await message("DOCX dosyası başarıyla kaydedildi.", { title: APP_TITLE, kind: "info" });
     } catch (err) {
-      alert("DOCX dönüştürme hatası: " + String(err));
+      await showError("DOCX dönüştürme hatası: " + String(err));
     }
   };
 
+  // Önizleme paneli "Sadece Editör" modunda da DOM'da tutulur (ekranda gizli, yazdırmada görünür),
+  // böylece her görünüm modunda PDF/yazdırma dolu çıktı verir.
   const handleExportPdf = () => {
     window.print();
   };
@@ -171,35 +257,46 @@ export default function App() {
     }
   };
 
+  // Yazarken arayüzün akıcı kalması için önizleme gecikmeli değerden üretilir
+  const deferredContent = useDeferredValue(content);
+
   const renderedHtml = useMemo(() => {
-    const rawHtml = marked.parse(content) as string;
+    const rawHtml = marked.parse(deferredContent, { async: false }) as string;
+    // Güvenlik: .md içindeki HTML (script, onerror vb.) temizlenir
+    const cleanHtml = DOMPurify.sanitize(rawHtml);
     const container = document.createElement("div");
-    container.innerHTML = rawHtml;
+    container.innerHTML = cleanHtml;
     container.querySelectorAll("pre code").forEach((block) => {
       hljs.highlightElement(block as HTMLElement);
     });
     return container.innerHTML;
-  }, [content]);
+  }, [deferredContent]);
 
   const wordCount = useMemo(() => {
     const trimmed = content.trim();
     return trimmed ? trimmed.split(/\s+/).length : 0;
   }, [content]);
 
+  // Önizlemedeki bağlantılar uygulama penceresinde gezinmesin; sistem tarayıcısında açılsın
+  const handlePreviewClick = (e: MouseEvent<HTMLElement>) => {
+    const anchor = (e.target as HTMLElement).closest("a");
+    if (!anchor) return;
+    e.preventDefault();
+    const href = anchor.getAttribute("href") || "";
+    if (/^(https?:|mailto:)/i.test(href)) {
+      openUrl(href).catch((err) => console.error("Bağlantı açılamadı:", err));
+    }
+  };
+
+  const showEditor = viewMode === "split" || viewMode === "editor";
+  const showPreview = viewMode === "split" || viewMode === "preview";
+
   return (
     <div className="app-container">
       {/* Üst Araç Çubuğu */}
       <header className="toolbar">
         <div className="toolbar-group">
-          <button
-            className="btn"
-            onClick={() => {
-              setContent("");
-              setFilePath(null);
-              setIsDirty(false);
-            }}
-            title="Yeni Dosya"
-          >
+          <button className="btn" onClick={handleNew} title="Yeni Dosya">
             <FileText size={16} />
             Yeni
           </button>
@@ -243,7 +340,7 @@ export default function App() {
 
         {/* Dışa Aktarma ve Ayarlar */}
         <div className="toolbar-group">
-          <button className="btn" onClick={handleExportPdf} title="PDF Olarak Kaydet / Yazdır">
+          <button className="btn" onClick={handleExportPdf} title="Yazdır / PDF Olarak Kaydet">
             <Printer size={15} />
             PDF
           </button>
@@ -260,7 +357,7 @@ export default function App() {
 
       {/* Çalışma Alanı */}
       <main className="workspace">
-        {(viewMode === "split" || viewMode === "editor") && (
+        {showEditor && (
           <section className="editor-pane">
             <textarea
               className="editor-textarea"
@@ -275,14 +372,13 @@ export default function App() {
           </section>
         )}
 
-        {(viewMode === "split" || viewMode === "preview") && (
-          <section className="preview-pane">
-            <article
-              className="markdown-body"
-              dangerouslySetInnerHTML={{ __html: renderedHtml }}
-            />
-          </section>
-        )}
+        <section className={`preview-pane${showPreview ? "" : " print-only"}`}>
+          <article
+            className="markdown-body"
+            onClick={handlePreviewClick}
+            dangerouslySetInnerHTML={{ __html: renderedHtml }}
+          />
+        </section>
       </main>
 
       {/* Alt Durum Çubuğu */}
@@ -330,8 +426,8 @@ export default function App() {
               <label className="setting-label">Dosya Türü İlişkilendirme</label>
               <p className="setting-desc">
                 <code>.md</code>, <code>.markdown</code>, <code>.mdown</code> ve{" "}
-                <code>.mkd</code> uzantılı dosyaları çift tıkladığınızda otomatik olarak
-                Markdown Studio ile açar.
+                <code>.mkd</code> uzantılı dosyaları Markdown Studio ile açılacak şekilde kaydeder.
+                Windows'ta son seçimi sizin yapmanız gerekebilir.
               </p>
               <button className="btn btn-primary" onClick={handleRegisterFileAssociations}>
                 <CheckCircle2 size={16} />

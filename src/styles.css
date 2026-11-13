@@ -10,6 +10,13 @@
   --accent-hover: #0550ae;
   --code-bg: #f6f8fa;
   --blockquote-border: #d0d7de;
+  --hl-comment: #6e7781;
+  --hl-keyword: #cf222e;
+  --hl-string: #0a3069;
+  --hl-number: #0550ae;
+  --hl-title: #8250df;
+  --hl-builtin: #953800;
+  --hl-tag: #116329;
 }
 
 [data-theme="dark"] {
@@ -23,6 +30,13 @@
   --accent-hover: #79c0ff;
   --code-bg: #161b22;
   --blockquote-border: #3b434b;
+  --hl-comment: #8b949e;
+  --hl-keyword: #ff7b72;
+  --hl-string: #a5d6ff;
+  --hl-number: #79c0ff;
+  --hl-title: #d2a8ff;
+  --hl-builtin: #ffa657;
+  --hl-tag: #7ee787;
 }
 
 [data-theme="sepia"] {
@@ -36,6 +50,13 @@
   --accent-hover: #82461e;
   --code-bg: #f3e4c6;
   --blockquote-border: #c9b084;
+  --hl-comment: #8a7458;
+  --hl-keyword: #9c3a1a;
+  --hl-string: #4f6b2a;
+  --hl-number: #8a5a00;
+  --hl-title: #6b4c9a;
+  --hl-builtin: #8a4b08;
+  --hl-tag: #2f6f4f;
 }
 
 [data-theme="nord"] {
@@ -49,6 +70,13 @@
   --accent-hover: #8fbcbb;
   --code-bg: #3b4252;
   --blockquote-border: #5e81ac;
+  --hl-comment: #8a96ad;
+  --hl-keyword: #81a1c1;
+  --hl-string: #a3be8c;
+  --hl-number: #b48ead;
+  --hl-title: #88c0d0;
+  --hl-builtin: #d08770;
+  --hl-tag: #8fbcbb;
 }
 
 * {
@@ -168,6 +196,10 @@ body {
   background-color: var(--bg-primary);
 }
 
+.preview-pane.print-only {
+  display: none;
+}
+
 /* Markdown Rendered Styles */
 .markdown-body {
   max-width: 860px;
@@ -249,6 +281,63 @@ body {
   background-color: var(--bg-secondary);
 }
 
+
+/* Sözdizimi renklendirme (highlight.js) - tema değişkenlerine bağlı */
+.hljs {
+  color: var(--text-primary);
+  background: transparent;
+}
+.hljs-comment,
+.hljs-quote {
+  color: var(--hl-comment);
+  font-style: italic;
+}
+.hljs-keyword,
+.hljs-doctag,
+.hljs-template-tag,
+.hljs-deletion {
+  color: var(--hl-keyword);
+}
+.hljs-string,
+.hljs-regexp,
+.hljs-addition,
+.hljs-meta .hljs-string {
+  color: var(--hl-string);
+}
+.hljs-number,
+.hljs-literal,
+.hljs-attr,
+.hljs-attribute,
+.hljs-meta,
+.hljs-selector-attr,
+.hljs-selector-class,
+.hljs-selector-id {
+  color: var(--hl-number);
+}
+.hljs-title,
+.hljs-section {
+  color: var(--hl-title);
+}
+.hljs-built_in,
+.hljs-symbol,
+.hljs-bullet,
+.hljs-type,
+.hljs-variable,
+.hljs-template-variable {
+  color: var(--hl-builtin);
+}
+.hljs-name,
+.hljs-tag,
+.hljs-selector-tag {
+  color: var(--hl-tag);
+}
+.hljs-emphasis {
+  font-style: italic;
+}
+.hljs-strong {
+  font-weight: 700;
+}
+
 .statusbar {
   display: flex;
   justify-content: space-between;
@@ -323,17 +412,50 @@ body {
 
 /* Print / PDF Styles */
 @media print {
+  /* Seçili tema ne olursa olsun çıktı her zaman açık renklerle alınır */
+  html[data-theme] {
+    --bg-primary: #ffffff;
+    --bg-secondary: #f6f8fa;
+    --bg-tertiary: #eaeef2;
+    --text-primary: #1f2328;
+    --text-secondary: #656d76;
+    --border-color: #d0d7de;
+    --accent-color: #0969da;
+    --code-bg: #f6f8fa;
+    --blockquote-border: #d0d7de;
+    --hl-comment: #6e7781;
+    --hl-keyword: #cf222e;
+    --hl-string: #0a3069;
+    --hl-number: #0550ae;
+    --hl-title: #8250df;
+    --hl-builtin: #953800;
+    --hl-tag: #116329;
+  }
   .toolbar, .editor-pane, .statusbar, .modal-backdrop {
     display: none !important;
   }
-  body, .app-container, .workspace, .preview-pane {
+  html, body, .app-container, .workspace {
+    display: block !important;
     height: auto !important;
     overflow: visible !important;
+  }
+  .preview-pane,
+  .preview-pane.print-only {
+    display: block !important;
+    height: auto !important;
+    overflow: visible !important;
+    padding: 0 !important;
+  }
+  body, .preview-pane {
     background: #ffffff !important;
     color: #000000 !important;
-    padding: 0 !important;
   }
   .markdown-body {
     max-width: 100% !important;
+  }
+  .markdown-body pre,
+  .markdown-body table,
+  .markdown-body blockquote {
+    break-inside: avoid;
   }
 }

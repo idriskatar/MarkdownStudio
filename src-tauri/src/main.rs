@@ -2,14 +2,36 @@
 
 mod file_assoc;
 
+use std::path::Path;
 use std::sync::Mutex;
-use tauri::{Emitter, Listener, State};
+use tauri::{Emitter, Manager, State};
 
+/// Uygulama açılırken (çift tık / "Birlikte Aç" / komut satırı) gelen dosya yolu.
 struct OpenedFile(Mutex<Option<String>>);
+
+/// Argümanlardan, diskte gerçekten var olan ilk dosya yolunu bulur.
+/// Göreli yollar `cwd`'ye göre çözülür (ikinci örnekten gelen çağrılar için).
+fn resolve_file_arg(arg: &str, cwd: &str) -> Option<String> {
+    if arg.starts_with('-') {
+        return None;
+    }
+    let p = Path::new(arg);
+    let full = if p.is_absolute() {
+        p.to_path_buf()
+    } else {
+        Path::new(cwd).join(p)
+    };
+    if full.is_file() {
+        Some(full.to_string_lossy().into_owned())
+    } else {
+        None
+    }
+}
 
 #[tauri::command]
 fn get_opened_file(state: State<OpenedFile>) -> Option<String> {
-    state.0.lock().unwrap().clone()
+    // take(): dosya yalnızca bir kez teslim edilir (yeniden yüklemede tekrar açılmaz)
+    state.0.lock().unwrap().take()
 }
 
 #[tauri::command]
@@ -18,32 +40,55 @@ fn register_file_associations() -> Result<String, String> {
 }
 
 fn main() {
-    let args: Vec<String> = std::env::args().collect();
-    let initial_file = if args.len() > 1 {
-        Some(args[1].clone())
-    } else {
-        None
-    };
+    let cwd = std::env::current_dir()
+        .map(|p| p.to_string_lossy().into_owned())
+        .unwrap_or_default();
+    let initial_file = std::env::args()
+        .skip(1)
+        .find_map(|a| resolve_file_arg(&a, &cwd));
 
-    tauri::Builder::default()
+    let builder = tauri::Builder::default();
+
+    // Tek örnek: uygulama zaten açıkken başka bir .md dosyasına çift tıklanırsa
+    // yeni pencere açmak yerine dosya mevcut pencerede açılır.
+    // (Bu eklenti diğerlerinden ÖNCE kaydedilmelidir.)
+    #[cfg(desktop)]
+    let builder = builder.plugin(tauri_plugin_single_instance::init(|app, args, cwd| {
+        if let Some(path) = args.iter().skip(1).find_map(|a| resolve_file_arg(a, &cwd)) {
+            let _ = app.emit("open-file", path);
+        }
+        if let Some(window) = app.get_webview_window("main") {
+            let _ = window.unminimize();
+            let _ = window.set_focus();
+        }
+    }));
+
+    let app = builder
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
+        .plugin(tauri_plugin_opener::init())
         .manage(OpenedFile(Mutex::new(initial_file)))
         .invoke_handler(tauri::generate_handler![
             get_opened_file,
             register_file_associations
         ])
-        .setup(|app| {
-            // macOS Finder'dan "Birlikte Aç" ile gelen dosyaları yakalama
-            #[cfg(target_os = "macos")]
-            {
-                let handle = app.handle().clone();
-                app.listen("tauri://file-drop", move |event| {
-                    let _ = handle.emit("open-file", event.payload());
-                });
+        .build(tauri::generate_context!())
+        .expect("Tauri uygulaması oluşturulurken hata oluştu");
+
+    app.run(|app_handle, event| {
+        // macOS: Finder'dan "Birlikte Aç" / çift tık, komut satırı argümanı olarak
+        // değil RunEvent::Opened olarak gelir.
+        #[cfg(target_os = "macos")]
+        if let tauri::RunEvent::Opened { urls } = &event {
+            if let Some(path) = urls.iter().find_map(|u| u.to_file_path().ok()) {
+                let path = path.to_string_lossy().into_owned();
+                // Arayüz henüz hazır değilse get_opened_file ile alınır,
+                // hazırsa olay ile iletilir.
+                *app_handle.state::<OpenedFile>().0.lock().unwrap() = Some(path.clone());
+                let _ = app_handle.emit("open-file", path);
             }
-            Ok(())
-        })
-        .run(tauri::generate_context!())
-        .expect("Tauri uygulaması başlatılırken hata oluştu");
+        }
+        #[cfg(not(target_os = "macos"))]
+        let _ = (&app_handle, &event);
+    });
 }

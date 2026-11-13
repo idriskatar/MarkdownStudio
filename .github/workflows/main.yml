@@ -46,24 +46,19 @@ jobs:
         if: matrix.platform == 'ubuntu-22.04'
         run: |
           sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev libxdo-dev libssl-dev patchelf
 
       - name: Install frontend dependencies
         run: npm install
 
-      - name: Create Tauri Icons Manually
-        run: |
-          mkdir -p src-tauri/icons
-          node -e '
-            const fs = require("fs");
-            const pngBase64 = "iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAACXBIWXMAAAsTAAALEwEAmpwYAAAAVElEQVR4nO2WQQoAIAgE7f8/3hUvQnQxQ8ElJ5nZJjNlK6lWf0y9z267d3P0n0f8Q+oD1B5g4c8D9K8C3vQZfvP3AWB/A5r3AgAAAABJRU5ErkJggg==";
-            fs.writeFileSync("src-tauri/icons/icon.png", Buffer.from(pngBase64, "base64"));
-            fs.writeFileSync("src-tauri/icons/32x32.png", Buffer.from(pngBase64, "base64"));
-            fs.writeFileSync("src-tauri/icons/128x128.png", Buffer.from(pngBase64, "base64"));
-            fs.writeFileSync("src-tauri/icons/icon.ico", Buffer.from(pngBase64, "base64"));
-            console.log("Mock icons created successfully.");
-          '
+      # İkonlar src-tauri/icons/ altında depoya dahildir. Değiştirmek isterseniz:
+      #   npx tauri icon src-tauri/icons/icon.png
+      - name: Verify icons exist
         shell: bash
+        run: |
+          for f in 32x32.png 128x128.png "128x128@2x.png" icon.icns icon.ico icon.png; do
+            test -s "src-tauri/icons/$f" || { echo "Eksik ikon: $f (çözüm: npx tauri icon src-tauri/icons/icon.png)"; exit 1; }
+          done
 
       - name: Build Tauri application
         uses: tauri-apps/tauri-action@v0

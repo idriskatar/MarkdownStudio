@@ -2,7 +2,7 @@
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "Markdown Studio",
   "version": "1.0.0",
-  "identifier": "com.markdownstudio.app",
+  "identifier": "com.markdownstudio.editor",
   "build": {
     "beforeDevCommand": "npm run dev",
     "devUrl": "http://localhost:1420",
@@ -12,6 +12,7 @@
   "app": {
     "windows": [
       {
+        "label": "main",
         "title": "Markdown Studio",
         "width": 1200,
         "height": 800,
@@ -20,17 +21,26 @@
       }
     ],
     "security": {
-      "csp": null
+      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https: asset: http://asset.localhost; font-src 'self' data:; connect-src 'self' ipc: http://ipc.localhost",
+      "devCsp": null
     }
   },
   "bundle": {
     "active": true,
     "targets": "all",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
     "fileAssociations": [
       {
         "ext": ["md", "markdown", "mdown", "mkd"],
         "name": "Markdown Document",
         "description": "Markdown Metin Belgesi",
+        "mimeType": "text/markdown",
         "role": "Editor"
       }
     ]
