@@ -68,6 +68,4 @@ jobs:
           done
 
       - name: Build Tauri application
-        uses: tauri-apps/tauri-action@v0
-        with:
-          args: ${{ matrix.args }}
+        run: npx tauri build ${{ matrix.args }}
