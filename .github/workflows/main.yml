@@ -51,50 +51,18 @@ jobs:
       - name: Install frontend dependencies
         run: npm install
 
-      - name: Generate default Tauri icons if missing
+      - name: Create Tauri Icons Manually
         run: |
+          mkdir -p src-tauri/icons
           node -e '
             const fs = require("fs");
-            const zlib = require("zlib");
-            if (!fs.existsSync("src-tauri/icons/icon.png")) {
-              fs.mkdirSync("src-tauri/icons", { recursive: true });
-              const w = 32, h = 32;
-              const raw = Buffer.alloc((w * 4 + 1) * h);
-              for (let y = 0; y < h; y++) {
-                raw[y * (w * 4 + 1)] = 0;
-                for (let x = 0; x < w; x++) {
-                  const i = y * (w * 4 + 1) + 1 + x * 4;
-                  raw[i] = 9; raw[i+1] = 105; raw[i+2] = 218; raw[i+3] = 255;
-                }
-              }
-              const crc32 = (buf) => {
-                let c = -1;
-                for (let b of buf) { c = (c >>> 8) ^ crcTable[(c ^ b) & 0xff]; }
-                return (c ^ -1) >>> 0;
-              };
-              const crcTable = Array.from({length: 256}, (_, n) => {
-                let c = n;
-                for (let k = 0; k < 8; k++) c = (c & 1) ? (0xedb88320 ^ (c >>> 1)) : (c >>> 1);
-                return c;
-              });
-              const chunk = (type, data) => {
-                const t = Buffer.from(type);
-                const len = Buffer.alloc(4); len.writeUInt32BE(data.length);
-                const crc = Buffer.alloc(4); crc.writeUInt32BE(crc32(Buffer.concat([t, data])));
-                return Buffer.concat([len, t, data, crc]);
-              };
-              const ihdr = Buffer.alloc(13);
-              ihdr.writeUInt32BE(w, 0); ihdr.writeUInt32BE(h, 4); ihdr[8] = 8; ihdr[9] = 6;
-              const png = Buffer.concat([
-                Buffer.from([137,80,78,71,13,10,26,10]),
-                chunk("IHDR", ihdr),
-                chunk("IDAT", zlib.deflateSync(raw)),
-                chunk("IEND", Buffer.alloc(0))
-              ]);
-              fs.writeFileSync("src-tauri/icons/temp.png", png);
-            }
+            const pngBase64 = "iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAACXBIWXMAAAsTAAALEwEAmpwYAAAAVElEQVR4nO2WQQoAIAgE7f8/3hUvQnQxQ8ElJ5nZJjNlK6lWf0y9z267d3P0n0f8Q+oD1B5g4c8D9K8C3vQZfvP3AWB/A5r3AgAAAABJRU5ErkJggg==";
+            fs.writeFileSync("src-tauri/icons/icon.png", Buffer.from(pngBase64, "base64"));
+            fs.writeFileSync("src-tauri/icons/32x32.png", Buffer.from(pngBase64, "base64"));
+            fs.writeFileSync("src-tauri/icons/128x128.png", Buffer.from(pngBase64, "base64"));
+            fs.writeFileSync("src-tauri/icons/icon.ico", Buffer.from(pngBase64, "base64"));
+            console.log("Mock icons created successfully.");
           '
-          if [ -f "src-tauri/icons/temp.png" ]; then npx tauri icon src-tauri/icons/temp.png && rm src-tauri/icons/temp.png; fi
         shell: bash
 
       - name: Build Tauri application

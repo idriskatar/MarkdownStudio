@@ -3,7 +3,7 @@
 mod file_assoc;
 
 use std::sync::Mutex;
-use tauri::{Emitter, Manager, State};
+use tauri::{Emitter, Listener, State};
 
 struct OpenedFile(Mutex<Option<String>>);
 
